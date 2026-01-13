@@ -8,13 +8,14 @@ def process_sql_file(input_filename, output_filename):
         print(f"错误: 找不到文件 {input_filename}")
         return
 
-    with open(input_filename, 'r', encoding='utf-8') as f:
-        sql_text = f.read()
+    with open(input_filename, 'r', encoding='utf-8') as target_file:
+        sql_text = target_file.read()
 
     # 1. 提取建表语句内部字段 (保持之前的逻辑)
     # 使用 re.DOTALL 允许跨行匹配，寻找第一个 ( 到 最后一个 ) 之间的内容
     # . 匹配除换行符外的任意字符
     # 非贪婪模式 (.*?)，迫使引擎找到第一个满足后续条件的闭合括号 )\s*; 就停止
+    # 通过添加 \s*;，我们告诉正则：我们要找的是“作为语句结尾的那个括号”，而不是字段定义中的 DECIMAL(10, 2) 内部的括号
     table_match = re.search(r'CREATE TABLE.*?\((.*?)\)\s*;', sql_text, re.DOTALL | re.IGNORECASE)
     if not table_match:
         print("未找到有效的 CREATE TABLE 语句")
@@ -62,8 +63,13 @@ def process_sql_file(input_filename, output_filename):
     # 4. 写入 CSV
     # 在保存 CSV 时使用了 encoding='utf-8-sig'。这样生成的 CSV 文件用 Excel 直接打开时，中文才不会乱码
     try:
-        with open(output_filename, 'w', encoding='utf-8-sig', newline='') as f:
-            writer = csv.writer(f)
+        # Python 的 csv 模块在写入数据时，有它自己的换行处理逻辑：
+        # csv.writer 内部已经根据不同系统的标准，在每一行数据末尾添加了相应的换行符（通常是 \r\n）
+        # Python 的 open() 函数默认会启用“通用换行符”模式，如果你不指定 newline=''，Python 会将代码中的换行符 \n 自动转换成操作系统默认的换行符（在 Windows 上是 \r\n）
+        # 如果没有 newline=''：csv 模块先写入了 \r\n，然后 Python 的 open 函数又检测到了其中的 \n，并将其再次转换成 \r\n，结果就变成了写入 \r\r\n
+        # 通过设置 newline=''，你告诉 Python 的 open 函数：“不要对换行符做任何自动转换，把控制权完全交给 csv 模块。”
+        with open(output_filename, 'w', encoding='utf-8-sig', newline='') as target_file:
+            writer = csv.writer(target_file)
             writer.writerow(['字段名', '类型', '注释'])
             for col_name in sorted_columns:
                 info = column_data[col_name]
