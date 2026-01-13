@@ -2,3 +2,5 @@
 .idea
 schema_output.csv
 schema_output2.csv
+inventory_dict.csv
+test_input.sql

@@ -1,4 +1,4 @@
-CREATE TABLE "myschema"."orders" (
+CREATE TABLE "schema"."orders" (
     "order_id" INT8 PRIMARY KEY,
     "total_amount" DECIMAL(12, 2),
     "user_id" INTEGER

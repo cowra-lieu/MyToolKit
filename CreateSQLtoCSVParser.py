@@ -15,8 +15,9 @@ def process_sql_file(input_filename, output_filename):
     # 使用 re.DOTALL 允许跨行匹配，寻找第一个 ( 到 最后一个 ) 之间的内容
     # . 匹配除换行符外的任意字符
     # 非贪婪模式 (.*?)
-    table_match = re.search(r'CREATE TABLE.*?\((.*)\).*?;', sql_text, re.DOTALL | re.IGNORECASE)
+    table_match = re.search(r'CREATE TABLE.*?\((.*?)\)\s*;', sql_text, re.DOTALL | re.IGNORECASE)
     if not table_match:
+        print("未找到有效的 CREATE TABLE 语句")
         return
 
     inner_content = table_match.group(1).strip()
@@ -25,7 +26,8 @@ def process_sql_file(input_filename, output_filename):
     lines = inner_content.split('\n')
     for line in lines:
         line = line.strip().rstrip(',')
-        if not line or line.upper().startswith(('CONSTRAINT', 'PRIMARY', 'UNIQUE', 'CHECK', 'FOREIGN', 'COMMENT ON ')):
+        # 排除约束行
+        if not line or line.upper().startswith(('CONSTRAINT', 'PRIMARY', 'UNIQUE', 'CHECK', 'FOREIGN')):
             continue
 
         # 处理字段名和类型，包括 DECIMAL(10,2)
@@ -53,15 +55,23 @@ def process_sql_file(input_filename, output_filename):
         if col_name in column_data:
             column_data[col_name]['comment'] = comment_text
 
-    # 3. 写入 CSV
-    # 在保存 CSV 时使用了 encoding='utf-8-sig'。这样生成的 CSV 文件用 Excel 直接打开时，中文才不会乱码
-    with open(output_filename, 'w', encoding='utf-8-sig', newline='') as f:
-        writer = csv.writer(f)
-        writer.writerow(['字段名', '类型', '注释'])
-        for col_name, info in column_data.items():
-            writer.writerow([col_name, info['type'], info['comment']])
+    # 3. 【核心增强】按字段名进行字母升序排序
+    # sorted() 函数会返回一个按键排序后的列表
+    sorted_columns = sorted(column_data.keys())
 
-    print(f"解析成功！已处理 {len(column_data)} 个字段。")
+    # 4. 写入 CSV
+    # 在保存 CSV 时使用了 encoding='utf-8-sig'。这样生成的 CSV 文件用 Excel 直接打开时，中文才不会乱码
+    try:
+        with open(output_filename, 'w', encoding='utf-8-sig', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['字段名', '类型', '注释'])
+            for col_name in sorted_columns:
+                info = column_data[col_name]
+                writer.writerow([col_name, info['type'], info['comment']])
+
+        print(f"解析成功！已处理 {len(column_data)} 个字段，已按字母顺序保存至: {output_filename}。")
+    except Exception as e:
+        print(f"写入文件时发生错误: {e}")
 
 
 # --- 使用方法 ---
@@ -70,13 +80,26 @@ def process_sql_file(input_filename, output_filename):
 
 # 测试代码
 if __name__ == "__main__":
-    # 创建一个模拟的 SQL 文件进行测试
-    # test_sql = """
-    #
-    # """
-    #
-    # with open('temp_test.sql', 'w', encoding='utf-8') as f:
-    #     f.write(test_sql)
+    # 模拟一个复杂的 SQL 输入
+    test_sql = """
+        CREATE TABLE public.inventory (
+            stock_id SERIAL PRIMARY KEY,
+            unit_price DECIMAL(12, 2) DEFAULT 0.00,
+            product_code VARCHAR(50) NOT NULL,
+            available_quantity INT4,
+            created_at TIMESTAMP
+        );
 
+        COMMENT ON COLUMN public.inventory.stock_id IS '库存唯一ID';
+        COMMENT ON COLUMN public.inventory.unit_price IS '单价';
+        COMMENT ON COLUMN public.inventory.product_code IS '产品编码';
+        COMMENT ON COLUMN public.inventory.available_quantity IS '可用库存数量';
+    """
+
+    # 写入临时文件测试
+    with open('test_input.sql', 'w', encoding='utf-8') as f:
+        f.write(test_sql)
+
+    process_sql_file('test_input.sql', 'inventory_dict.csv')
     process_sql_file('create_sql_test_case.sql', 'schema_output.csv')
     process_sql_file('create_sql_test_case2.sql', 'schema_output2.csv')
