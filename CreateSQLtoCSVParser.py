@@ -14,7 +14,7 @@ def process_sql_file(input_filename, output_filename):
     # 1. 提取建表语句内部字段 (保持之前的逻辑)
     # 使用 re.DOTALL 允许跨行匹配，寻找第一个 ( 到 最后一个 ) 之间的内容
     # . 匹配除换行符外的任意字符
-    # 非贪婪模式 (.*?)
+    # 非贪婪模式 (.*?)，迫使引擎找到第一个满足后续条件的闭合括号 )\s*; 就停止
     table_match = re.search(r'CREATE TABLE.*?\((.*?)\)\s*;', sql_text, re.DOTALL | re.IGNORECASE)
     if not table_match:
         print("未找到有效的 CREATE TABLE 语句")
