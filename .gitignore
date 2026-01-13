@@ -1,0 +1,4 @@
+.venv
+.idea
+schema_output.csv
+schema_output2.csv
