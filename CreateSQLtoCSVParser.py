@@ -16,7 +16,7 @@ def process_sql_file(input_filename, output_filename):
     # . 匹配除换行符外的任意字符
     # 非贪婪模式 (.*?)，迫使引擎找到第一个满足后续条件的闭合括号 )\s*; 就停止
     # 通过添加 \s*;，我们告诉正则：我们要找的是“作为语句结尾的那个括号”，而不是字段定义中的 DECIMAL(10, 2) 内部的括号
-    table_match = re.search(r'CREATE TABLE.*?\((.*?)\)\s*;', sql_text, re.DOTALL | re.IGNORECASE)
+    table_match = re.search(r'CREATE TABLE.*?\((.*?)\)\s*(?:WITH.+?)?\s*;', sql_text, re.DOTALL | re.IGNORECASE)
     if not table_match:
         print("未找到有效的 CREATE TABLE 语句")
         return
